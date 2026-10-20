@@ -1,0 +1,15 @@
+# Independent CLI, 2026-10-20
+# Seed 42 tiny. txn-000007. Idempotency key phase09-cli.
+# Decision dec-727cc436f18400cc07b1 scored HIGH 100. anchor_status PENDING.
+# Stored digest 0aa4cd70d752eed7761c28414ebeec14aa9ff539841e38aca8f3cd6eae74b678.
+# The copy changed payload.risk_score from 100 to 1.
+# RPC was http://127.0.0.1:9. Anvil was not running.
+# Exit status is 0 only for VERIFIED_ONCHAIN.
+
+tampered copy:
+{"chain_id": 31337, "contract_address": "0x5FbDB2315678afecb367f032d93F642f64180aa3", "decision_id": "dec-727cc436f18400cc07b1", "decision_key": "0xacdf7258dd4142d76c4f3bf40c5050ec60e7084f5bb15f29836e799b3ce12737", "digest_hex": "9d221ebf42bca144f80299fca0095796cb71f2ec56aa43c2beb85a2afc16ca49", "signing_key_id": "issuer-local-1", "status": "TAMPERED"}
+exit 1
+
+unmodified receipt, closed RPC:
+{"chain_id": 31337, "contract_address": "0x5FbDB2315678afecb367f032d93F642f64180aa3", "decision_id": "dec-727cc436f18400cc07b1", "decision_key": "0xacdf7258dd4142d76c4f3bf40c5050ec60e7084f5bb15f29836e799b3ce12737", "digest_hex": "0aa4cd70d752eed7761c28414ebeec14aa9ff539841e38aca8f3cd6eae74b678", "signing_key_id": "issuer-local-1", "status": "VERIFICATION_UNAVAILABLE"}
+exit 1

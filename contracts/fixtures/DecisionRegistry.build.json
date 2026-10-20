@@ -1,0 +1,10 @@
+{
+  "foundry": "1.8.5",
+  "solc": "0.8.28",
+  "evm_version": "cancun",
+  "optimizer": true,
+  "optimizer_runs": 200,
+  "runtime_bytes": 1273,
+  "runtime_sha256": "9bef8ceb9b4888b3d31ab6c0e073cd34301145be187548e308e755a10f8978db",
+  "note": "Runtime bytecode of DecisionRegistry after solc 0.8.28 with the optimizer. Anvil may delete this code when its state file is removed."
+}

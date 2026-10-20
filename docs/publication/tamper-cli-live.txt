@@ -1,0 +1,31 @@
+# Live-chain tamper capture, 2026-10-20T06:56:26Z
+# Host macOS-26.6.2-arm64-arm-64bit-Mach-O arm64, Python 3.14.2
+# Anvil is one temporary local process. Its state was in a temporary directory.
+# deployed 0x5FbDB2315678afecb367f032d93F642f64180aa3 tx 0x679c62b3a811625b1901e94c7e8e8703a93f26046094267c35828dfea997bca7 code 9bef8ceb9b4888b3d31ab6c0e073cd34301145be187548e308e755a10f8978db
+# Seed 42 tiny, txn-000007, idempotency key phase09-live-tamper.
+# Decision dec-9ecd5bb8fc44c24dadc3, score 100.
+# Anchor outcome CONFIRMED, tx 0xd47c695d8f5d6f57e326928c138481af49bf7db1195644704e0d06dc366e6de7, block 4.
+# Stored digest 98f567bef01fd4fa3d135c8aa8d46d56ea6edb0b398e9de74ef0a119b3fbc2b4.
+# The tampered copy changes payload.risk_score from 100 to 1. Exit 0 means VERIFIED_ONCHAIN only.
+# This shows integrity of the receipt, not that the decision was correct.
+
+## 1. original receipt, chain running
+$ python -m veritas.verifier verify --receipt receipt.json --trusted-keys trust-registry.json --rpc-url http://127.0.0.1:8545 --chain-id 31337 --contract-address 0x5FbDB2315678afecb367f032d93F642f64180aa3 --json
+{"chain_id": 31337, "contract_address": "0x5FbDB2315678afecb367f032d93F642f64180aa3", "decision_id": "dec-9ecd5bb8fc44c24dadc3", "decision_key": "0x1af3210b2a019cb88785810fd52d4f451429ce1058723a76aa9f70413bd3224c", "digest_hex": "98f567bef01fd4fa3d135c8aa8d46d56ea6edb0b398e9de74ef0a119b3fbc2b4", "signing_key_id": "issuer-local-1", "status": "VERIFIED_ONCHAIN"}
+exit 0
+
+## 2. tampered copy, chain running
+$ python -m veritas.verifier verify --receipt receipt-tampered.json --trusted-keys trust-registry.json --rpc-url http://127.0.0.1:8545 --chain-id 31337 --contract-address 0x5FbDB2315678afecb367f032d93F642f64180aa3 --json
+{"chain_id": 31337, "contract_address": "0x5FbDB2315678afecb367f032d93F642f64180aa3", "decision_id": "dec-9ecd5bb8fc44c24dadc3", "decision_key": "0x1af3210b2a019cb88785810fd52d4f451429ce1058723a76aa9f70413bd3224c", "digest_hex": "2c6b9b75d08f95f075ad21abcb934c669f716003e842cfcd6fe7d554f9444ee1", "signing_key_id": "issuer-local-1", "status": "TAMPERED"}
+exit 1
+
+## 3. original receipt, wrong contract address
+$ python -m veritas.verifier verify --receipt receipt.json --trusted-keys trust-registry.json --rpc-url http://127.0.0.1:8545 --chain-id 31337 --contract-address 0x000000000000000000000000000000000000dEaD --json
+{"chain_id": 31337, "contract_address": "0x000000000000000000000000000000000000dEaD", "decision_id": "dec-9ecd5bb8fc44c24dadc3", "decision_key": "0x1af3210b2a019cb88785810fd52d4f451429ce1058723a76aa9f70413bd3224c", "digest_hex": "98f567bef01fd4fa3d135c8aa8d46d56ea6edb0b398e9de74ef0a119b3fbc2b4", "signing_key_id": "issuer-local-1", "status": "CONFIG_MISMATCH"}
+exit 1
+
+## 4. original receipt, Anvil stopped
+$ python -m veritas.verifier verify --receipt receipt.json --trusted-keys trust-registry.json --rpc-url http://127.0.0.1:8545 --chain-id 31337 --contract-address 0x5FbDB2315678afecb367f032d93F642f64180aa3 --json
+{"chain_id": 31337, "contract_address": "0x5FbDB2315678afecb367f032d93F642f64180aa3", "decision_id": "dec-9ecd5bb8fc44c24dadc3", "decision_key": "0x1af3210b2a019cb88785810fd52d4f451429ce1058723a76aa9f70413bd3224c", "digest_hex": "98f567bef01fd4fa3d135c8aa8d46d56ea6edb0b398e9de74ef0a119b3fbc2b4", "signing_key_id": "issuer-local-1", "status": "VERIFICATION_UNAVAILABLE"}
+exit 1
+

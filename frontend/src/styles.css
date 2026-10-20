@@ -1,0 +1,75 @@
+:root {
+  color: #14202b;
+  background: #f4f7f8;
+  font-family: "Iowan Old Style", Palatino, Georgia, serif;
+}
+
+body {
+  margin: 0;
+}
+
+header,
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button[aria-current="true"] {
+  outline: 2px solid #1f4b6e;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+}
+
+th,
+td {
+  border-bottom: 1px solid #d5dee3;
+  text-align: left;
+  padding: 0.35rem;
+  vertical-align: top;
+}
+
+.warning {
+  background: #fff4d6;
+  padding: 0.5rem;
+}
+
+.graph {
+  height: 420px;
+  background: white;
+  border: 1px solid #d5dee3;
+}
+
+.tag {
+  display: inline-block;
+  margin: 0.25rem 0.25rem 0.25rem 0;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.85rem;
+}
+
+.tag-pending_anchor { background: #d9e7f5; }
+.tag-anchored { background: #d7f0df; }
+.tag-failed { background: #f8d0d0; }
+.tag-verification_unavailable { background: #ece6d8; }
+.tag-signature_mismatch { background: #f7d7b5; }
+
+dd {
+  overflow-wrap: anywhere;
+}

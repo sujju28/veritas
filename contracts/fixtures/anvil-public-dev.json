@@ -1,0 +1,9 @@
+{
+  "warning": "Anvil sample accounts are PUBLIC insecure credentials. They are published by the Anvil tool and must never be used on any network that holds value. This chain is a local resettable EVM, not a permissioned QBFT ledger. Deleting .anvil/ or starting Anvil without its state file erases every commitment.",
+  "chain_id": 31337,
+  "rpc_url": "http://127.0.0.1:8545",
+  "deployer_address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "public_test_private_key": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+  "unauthorized_address": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+  "unauthorized_public_test_private_key": "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+}
