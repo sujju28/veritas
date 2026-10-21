@@ -10,10 +10,11 @@ from pathlib import Path
 from typing import Any
 
 from veritas.evidence.keys import load_private_key
-from veritas.evidence.models import EvidencePayload
+from veritas.evidence.models import EvidencePayload, SourceRef
 from veritas.evidence.sign import sign_payload
 from veritas.graph.features import feature_snapshot
 from veritas.graph.window import Transfer, load_window
+from veritas.risk.manifest import ruleset_manifest_sha256
 from veritas.risk.model import MODEL_VERSION, load_model, normalized_anomaly
 from veritas.risk.rules import RULESET_VERSION, apply_rules, combine_scores, decision_band
 from veritas.storage.db import apply_migrations, connect, transaction
@@ -31,6 +32,9 @@ _PUBLIC_KEYS = (
     "scoring_mode",
     "reason_codes",
     "ruleset_version",
+    "ruleset_sha256",
+    "source_ref",
+    "schema_version",
     "model_version",
     "rule_score",
     "ml_normalized_score",
@@ -97,7 +101,7 @@ def get_receipt(db_path: Path, decision_id: str) -> dict[str, Any] | None:
             return None
         payload = EvidencePayload.model_validate_json(row["canonical_text"])
         return {
-            "payload": payload.model_dump(),
+            "payload": payload.model_dump(exclude_none=True),
             "digest_hex": row["digest_hex"],
             "signature_b64": row["signature_b64"],
             "signing_key_id": row["signing_key_id"],
@@ -180,6 +184,25 @@ def _insert_decision(
     snapshot_id = "snap-" + decision_id.removeprefix("dec-")
     created_at = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     reason_codes = sorted({item["code"] for item in triggered})
+
+    ref_row = connection.execute(
+        """
+        SELECT chain_id, block_number, tx_hash, log_index
+        FROM onchain_transfer_refs
+        WHERE transaction_id = ?
+        """,
+        (subject["transaction_id"],),
+    ).fetchone()
+
+    source_ref: SourceRef | None = None
+    if ref_row is not None:
+        source_ref = SourceRef(
+            chain_id=int(ref_row["chain_id"]),
+            block_number=int(ref_row["block_number"]),
+            tx_hash=ref_row["tx_hash"],
+            log_index=int(ref_row["log_index"]),
+        )
+
     explanation = {
         "score_kind": "experimental_score",
         "note": "Experimental score, not a calibrated probability.",
@@ -187,6 +210,7 @@ def _insert_decision(
         "features": snapshot["features"],
         "from_bank_id": subject["from_bank_id"],
         "to_bank_id": subject["to_bank_id"],
+        "source_ref": source_ref.model_dump() if source_ref else None,
     }
     connection.execute(
         """
@@ -196,14 +220,15 @@ def _insert_decision(
         """,
         (snapshot_id, subject["transaction_id"], snapshot["schema_version"], canonical, digest),
     )
+    manifest_digest = ruleset_manifest_sha256()
     connection.execute(
         """
         INSERT INTO decisions (
             decision_id, idempotency_key, transaction_id, risk_score, decision_category,
             reason_codes, model_version, ruleset_version, created_at, scoring_mode, score_kind,
             rule_score, ml_normalized_score, explanation_json, feature_snapshot_id,
-            anchor_status, receipt_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            anchor_status, receipt_status, schema_version, ruleset_sha256
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             decision_id,
@@ -223,10 +248,12 @@ def _insert_decision(
             snapshot_id,
             ANCHOR_STATUS,
             RECEIPT_STATUS,
+            "1.1",
+            manifest_digest,
         ),
     )
     payload = EvidencePayload(
-        schema_version="1.0",
+        schema_version="1.1",
         decision_id=decision_id,
         transaction_id=subject["transaction_id"],
         bank_id=subject["from_bank_id"],
@@ -236,6 +263,8 @@ def _insert_decision(
         feature_snapshot_sha256=digest,
         model_version=model_version,
         ruleset_version=RULESET_VERSION,
+        ruleset_sha256=manifest_digest,
+        source_ref=source_ref,
         decision_timestamp=created_at,
     )
     receipt, canonical_text = sign_payload(payload, private_key, signing_key_id)
@@ -281,6 +310,9 @@ def _insert_decision(
         "scoring_mode": mode,
         "reason_codes": reason_codes,
         "ruleset_version": RULESET_VERSION,
+        "ruleset_sha256": manifest_digest,
+        "source_ref": source_ref.model_dump() if source_ref else None,
+        "schema_version": "1.1",
         "model_version": model_version,
         "rule_score": rule_score,
         "ml_normalized_score": ml_score,
@@ -346,6 +378,24 @@ def _hydrate(connection: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]
         "SELECT digest_hex FROM feature_snapshots WHERE snapshot_id = ?",
         (row["feature_snapshot_id"],),
     ).fetchone()
+    ref_row = connection.execute(
+        """
+        SELECT chain_id, block_number, tx_hash, log_index
+        FROM onchain_transfer_refs
+        WHERE transaction_id = ?
+        """,
+        (row["transaction_id"],),
+    ).fetchone()
+    source_ref = (
+        {
+            "chain_id": int(ref_row["chain_id"]),
+            "block_number": int(ref_row["block_number"]),
+            "tx_hash": ref_row["tx_hash"],
+            "log_index": int(ref_row["log_index"]),
+        }
+        if ref_row is not None
+        else explanation.get("source_ref")
+    )
     return {
         "decision_id": row["decision_id"],
         "transaction_id": row["transaction_id"],
@@ -356,6 +406,9 @@ def _hydrate(connection: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]
         "scoring_mode": row["scoring_mode"],
         "reason_codes": json.loads(row["reason_codes"]),
         "ruleset_version": row["ruleset_version"],
+        "ruleset_sha256": row["ruleset_sha256"] if "ruleset_sha256" in row.keys() else None,
+        "source_ref": source_ref,
+        "schema_version": row["schema_version"] if "schema_version" in row.keys() else "1.0",
         "model_version": row["model_version"],
         "rule_score": int(row["rule_score"]),
         "ml_normalized_score": row["ml_normalized_score"],

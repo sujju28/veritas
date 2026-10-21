@@ -123,3 +123,17 @@ def test_settings_reject_a_public_bind_host() -> None:
 def test_app_factory_returns_fastapi() -> None:
     app = create_app(Settings(db_path=Path("/dev/null/veritas.db")))
     assert isinstance(app, FastAPI)
+
+
+def test_current_ruleset_endpoint(tmp_path: Path) -> None:
+    with _client(tmp_path / "veritas.db") as client:
+        res1 = client.get("/api/v1/rulesets/current")
+        assert res1.status_code == 200
+        data1 = res1.json()
+        assert data1["ruleset_version"] == "rules-v1"
+        assert len(data1["manifest_sha256"]) == 64
+        assert "rules" in data1["manifest"]
+
+        res2 = client.get("/rulesets/current")
+        assert res2.status_code == 200
+        assert res2.json() == data1

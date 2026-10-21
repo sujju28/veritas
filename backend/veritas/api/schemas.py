@@ -21,3 +21,9 @@ class DependencyCheck(BaseModel):
 class ReadyResponse(BaseModel):
     status: Literal["ready", "degraded", "not_ready"]
     checks: list[DependencyCheck] = Field(default_factory=list)
+
+
+class RulesetCurrentResponse(BaseModel):
+    ruleset_version: str
+    manifest_sha256: str
+    manifest: dict[str, object]

@@ -1,0 +1,64 @@
+{
+  "decision_bands": [
+    {
+      "band": "LOW",
+      "max_score": 39,
+      "min_score": 0
+    },
+    {
+      "band": "REVIEW",
+      "max_score": 69,
+      "min_score": 40
+    },
+    {
+      "band": "HIGH",
+      "max_score": 100,
+      "min_score": 70
+    }
+  ],
+  "rules": [
+    {
+      "code": "FAN_IN",
+      "feature": "dst_fan_in_15m",
+      "points": 40,
+      "threshold": 4
+    },
+    {
+      "code": "FAN_OUT",
+      "feature": "src_fan_out_15m",
+      "points": 40,
+      "threshold": 4
+    },
+    {
+      "code": "HIGH_VELOCITY",
+      "feature": "src_out_count_15m",
+      "points": 25,
+      "threshold": 4
+    },
+    {
+      "code": "HIGH_VELOCITY",
+      "feature": "dst_in_count_15m",
+      "points": 25,
+      "threshold": 4
+    },
+    {
+      "code": "RAPID_ONWARD",
+      "feature": "src_onward_ratio_15m",
+      "points": 35,
+      "threshold": 0.8
+    },
+    {
+      "code": "MULTI_HOP",
+      "feature": "src_upstream_hops",
+      "points": 20,
+      "threshold": 3
+    }
+  ],
+  "ruleset_version": "rules-v1",
+  "score_combination": {
+    "formula": "(6 * ml_normalized + 4 * rule_score + 5) // 10",
+    "ml_weight": 0.6,
+    "rounding": "floor_with_half_up_via_plus_5",
+    "rule_weight": 0.4
+  }
+}

@@ -89,15 +89,22 @@ def test_fresh_receipt_anchors_and_outage_is_not_success(tmp_path: Path) -> None
                 if outcome is not None and outcome.status == "CONFIRMED":
                     break
         assert outcome is not None
-        assert outcome.status == "CONFIRMED"
+        env_lines = (_ROOT / ".env.local").read_text().splitlines()
+        ruleset_addr = next(
+            line.split("=")[1].strip()
+            for line in env_lines
+            if line.startswith("VERITAS_RULESET_REGISTRY_ADDRESS=")
+        )
         verified = verify_on_chain(
             receipt,
             registry,
             rpc_url=_RPC,
             chain_id=31337,
             contract_address=_CONTRACT,
+            ruleset_registry_address=ruleset_addr,
         )
         assert verified["status"] == "VERIFIED_ONCHAIN"
+        assert verified["ruleset_check"] == "MATCH"
         copied = json.loads(receipt_path.read_text(encoding="utf-8"))
         copied["payload"]["reason_codes"] = ["TAMPER"]
         tampered = verify_on_chain(
@@ -106,6 +113,7 @@ def test_fresh_receipt_anchors_and_outage_is_not_success(tmp_path: Path) -> None
             rpc_url=_RPC,
             chain_id=31337,
             contract_address=_CONTRACT,
+            ruleset_registry_address=ruleset_addr,
         )
         assert tampered["status"] == "TAMPERED"
         process.terminate()
@@ -117,6 +125,7 @@ def test_fresh_receipt_anchors_and_outage_is_not_success(tmp_path: Path) -> None
             rpc_url=_RPC,
             chain_id=31337,
             contract_address=_CONTRACT,
+            ruleset_registry_address=ruleset_addr,
         )
         assert outage["status"] == "VERIFICATION_UNAVAILABLE"
         assert "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" not in json.dumps(

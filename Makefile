@@ -19,13 +19,15 @@ SEED ?= 42
 REPLACE ?= 0
 CONFIRM ?= 0
 
-.PHONY: help setup backend seed test-unit lint format-check chain-start contract-test contract-deploy worker verify test-e2e frontend frontend-build frontend-test benchmark capture-tamper
+.PHONY: help setup backend seed test-unit lint format-check chain-start contract-test contract-deploy worker verify test-e2e frontend frontend-build frontend-test benchmark capture-tamper ruleset-manifest ruleset-register onchain-deploy onchain-replay onchain-ingest
 
 NPM ?= npm
 
 RECEIPT ?=
 TRUSTED_KEYS ?=
 CONTRACT_ADDRESS ?= $(shell awk -F= '/^VERITAS_CONTRACT_ADDRESS=/{print $$2}' "$(ROOT)/.env.local")
+RULESET_REGISTRY_ADDRESS ?= $(shell awk -F= '/^VERITAS_RULESET_REGISTRY_ADDRESS=/{print $$2}' "$(ROOT)/.env.local")
+TRANSFER_LOG_ADDRESS ?= $(shell awk -F= '/^VERITAS_TRANSFER_LOG_ADDRESS=/{print $$2}' "$(ROOT)/.env.local")
 
 help: ## List the local targets
 	@printf "Targets:\n"
@@ -36,8 +38,8 @@ help: ## List the local targets
 	@printf "  lint           Run Ruff checks on the backend\n"
 	@printf "  format-check   Check backend formatting with Ruff\n"
 	@printf "  chain-start    Run native Anvil on 127.0.0.1:8545 (stop with Ctrl-C)\n"
-	@printf "  contract-test  Run Foundry tests for DecisionRegistry\n"
-	@printf "  contract-deploy Deploy the registry to the running local Anvil\n"
+	@printf "  contract-test  Run Foundry tests for DecisionRegistry, RulesetRegistry, TransferLog\n"
+	@printf "  contract-deploy Deploy registries to the running local Anvil\n"
 	@printf "  worker         Poll the outbox and anchor on local Anvil (stop with Ctrl-C)\n"
 	@printf "  verify         Run the independent verifier. Set RECEIPT and TRUSTED_KEYS\n"
 	@printf "  test-e2e       Anchor one fresh receipt on Anvil and verify it\n"
@@ -46,6 +48,11 @@ help: ## List the local targets
 	@printf "  frontend-test  Run the dashboard unit tests\n"
 	@printf "  benchmark      Time tiny, default, and 10k runs and write docs/benchmarks\n"
 	@printf "  capture-tamper Run a temporary Anvil and write docs/publication/tamper-cli-live.txt\n"
+	@printf "  ruleset-manifest Generate docs/rulesets/rules-v1.json from declared risk rules\n"
+	@printf "  ruleset-register Register canonical ruleset manifest on local RulesetRegistry\n"
+	@printf "  onchain-deploy Deploy contracts to local Anvil (alias for contract-deploy)\n"
+	@printf "  onchain-replay Replay accounts and transactions from SQLite onto TransferLog\n"
+	@printf "  onchain-ingest Ingest events from TransferLog into data/veritas-onchain.db\n"
 
 setup: ## Create the virtualenv and install the locked Phase 01 dependencies
 	@test -x "$(PY)" || "$(PYTHON)" -m venv "$(VENV)"
@@ -130,3 +137,32 @@ benchmark: ## Explicit 10k study plus a temporary Anvil sample. Stop other chain
 capture-tamper: ## Temporary Anvil, one anchored receipt, then the verifier on original and tampered copies
 	cd "$(ROOT)/backend" && "$(PY)" scripts/capture_tamper_evidence.py \
 		--output "$(ROOT)/docs/publication/tamper-cli-live.txt"
+
+ruleset-manifest: ## Generate docs/rulesets/rules-v1.json from declared risk rules and constants
+	cd "$(ROOT)/backend" && "$(PY)" -m veritas.risk.manifest \
+		--output "$(ROOT)/docs/rulesets/rules-v1.json"
+
+ruleset-register: ## Register canonical ruleset manifest on local RulesetRegistry
+	cd "$(ROOT)/backend" && "$(PY)" -m veritas.ledger.ruleset register \
+		--manifest "$(ROOT)/docs/rulesets/rules-v1.json" \
+		--rpc-url "$(RPC_URL)" \
+		--chain-id "$(CHAIN_ID)" \
+		--contract-address "$(RULESET_REGISTRY_ADDRESS)"
+
+onchain-deploy: contract-deploy ## Deploy contracts to local Anvil
+
+onchain-replay: ## Replay accounts and transactions from SQLite onto TransferLog
+	cd "$(ROOT)/backend" && "$(PY)" -m veritas.onchain.replay \
+		--source-db "$(ROOT)/data/veritas.db" \
+		--rpc-url "$(RPC_URL)" \
+		--chain-id "$(CHAIN_ID)" \
+		--contract-address "$(TRANSFER_LOG_ADDRESS)"
+
+onchain-ingest: ## Ingest events from TransferLog into data/veritas-onchain.db
+	cd "$(ROOT)/backend" && "$(PY)" -m veritas.onchain.ingest \
+		--db "$(ROOT)/data/veritas-onchain.db" \
+		--rpc-url "$(RPC_URL)" \
+		--chain-id "$(CHAIN_ID)" \
+		--contract-address "$(TRANSFER_LOG_ADDRESS)"
+
+

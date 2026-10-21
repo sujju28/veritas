@@ -15,7 +15,7 @@ from veritas.decisions.service import (
     get_receipt,
 )
 from veritas.evidence.keys import SigningKeyError, ensure_signing_key
-from veritas.evidence.models import EvidenceReceipt
+from veritas.evidence.models import EvidenceReceipt, SourceRef
 from veritas.graph.features import bounded_subgraph
 from veritas.graph.window import load_window
 from veritas.storage.db import apply_migrations, connect
@@ -36,6 +36,9 @@ class DecisionResponse(BaseModel):
     scoring_mode: str
     reason_codes: list[str]
     ruleset_version: str
+    ruleset_sha256: str | None = None
+    source_ref: SourceRef | None = None
+    schema_version: str = "1.1"
     model_version: str
     rule_score: int
     ml_normalized_score: int | None

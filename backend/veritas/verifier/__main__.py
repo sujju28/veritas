@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from veritas.ledger.commitment import PINNED_RUNTIME_SHA256
+from veritas.ledger.ruleset import PINNED_RULESET_REGISTRY_RUNTIME_SHA256
 from veritas.verifier.check import verify_on_chain
 
 
@@ -20,8 +21,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--chain-id", type=int, required=True)
     parser.add_argument("--contract-address", required=True)
     parser.add_argument("--code-sha256", default=PINNED_RUNTIME_SHA256)
+    parser.add_argument("--ruleset-address", default=None)
+    parser.add_argument("--ruleset-code-sha256", default=PINNED_RULESET_REGISTRY_RUNTIME_SHA256)
+    parser.add_argument("--manifest", type=Path, default=None)
+    parser.add_argument("--allow-unchecked-ruleset", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
+
     receipt = json.loads(args.receipt.read_text(encoding="utf-8"))
     registry = json.loads(args.trusted_keys.read_text(encoding="utf-8"))
     result = verify_on_chain(
@@ -31,13 +37,28 @@ def main(argv: list[str] | None = None) -> int:
         chain_id=args.chain_id,
         contract_address=args.contract_address,
         runtime_code_sha256=args.code_sha256,
+        ruleset_registry_address=args.ruleset_address,
+        ruleset_code_sha256=args.ruleset_code_sha256,
+        manifest_path=args.manifest,
+        allow_unchecked_ruleset=args.allow_unchecked_ruleset,
     )
     if args.json:
         json.dump(result, sys.stdout, sort_keys=True)
         sys.stdout.write("\n")
     else:
         print(result["status"])
-    return 0 if result["status"] == "VERIFIED_ONCHAIN" else 1
+
+    if result["status"] == "VERIFIED_ONCHAIN":
+        payload = receipt.get("payload", {})
+        schema_ver = payload.get("schema_version", "1.0")
+        if schema_ver == "1.0":
+            return 0
+        if result.get("ruleset_check") in {"MATCH", "DEPRECATED"}:
+            return 0
+        if args.allow_unchecked_ruleset:
+            return 0
+        return 1
+    return 1
 
 
 if __name__ == "__main__":

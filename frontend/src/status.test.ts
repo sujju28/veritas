@@ -13,6 +13,9 @@ describe("status mapping", () => {
     expect(statusTag("TAMPERED")).toBe("SIGNATURE_MISMATCH");
     expect(statusTag("INVALID_SIGNATURE")).toBe("SIGNATURE_MISMATCH");
     expect(statusTag("ONCHAIN_MISMATCH")).toBe("SIGNATURE_MISMATCH");
+    expect(statusTag("RULESET_MISMATCH")).toBe("SIGNATURE_MISMATCH");
+    expect(statusTag("RULESET_UNREGISTERED")).toBe("SIGNATURE_MISMATCH");
+    expect(statusTag("MANIFEST_MISMATCH")).toBe("SIGNATURE_MISMATCH");
     expect(statusLabel(statusTag("TAMPERED"))).toBe("Signature mismatch");
   });
 });

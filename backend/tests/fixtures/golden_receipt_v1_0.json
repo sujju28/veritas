@@ -1,0 +1,36 @@
+{
+  "description": "Golden v1.0 receipt and trusted public registry for backwards-compatibility regression testing",
+  "receipt": {
+    "payload": {
+      "schema_version": "1.0",
+      "decision_id": "dec-golden-001",
+      "transaction_id": "txn-000007",
+      "bank_id": "BANK_B",
+      "decision": "HIGH",
+      "risk_score": 100,
+      "reason_codes": [
+        "FAN_OUT",
+        "HIGH_VELOCITY",
+        "RAPID_ONWARD"
+      ],
+      "feature_snapshot_sha256": "11758b98649ba7447ee6aacf934f3c90d769004c1ec46547189dc3a574baee9c",
+      "model_version": "rule-only",
+      "ruleset_version": "rules-v1",
+      "decision_timestamp": "2026-10-19T14:00:00Z"
+    },
+    "digest_hex": "480ea464ba5357c534d41a36326e4594dc1aa960d9797b4a6ec6da43e8648d55",
+    "signature_b64": "Zf6C7padrm94eZjLGQh+1QZ8cTQcgP6hyWodff8vkn/ToGEAFlEsUG47RoroOtnaiZ9jJXyhu9AMc4pYCbH/DQ==",
+    "signing_key_id": "issuer-golden-1",
+    "signature_algorithm": "Ed25519"
+  },
+  "trust_registry": {
+    "keys": [
+      {
+        "key_id": "issuer-golden-1",
+        "algorithm": "Ed25519",
+        "public_key_b64": "K7oVA5o0U/uZ4u7AalROGP54FVFMrnjDSlm+86+RfOs="
+      }
+    ]
+  },
+  "canonical_text": "{\"bank_id\":\"BANK_B\",\"decision\":\"HIGH\",\"decision_id\":\"dec-golden-001\",\"decision_timestamp\":\"2026-10-19T14:00:00Z\",\"feature_snapshot_sha256\":\"11758b98649ba7447ee6aacf934f3c90d769004c1ec46547189dc3a574baee9c\",\"model_version\":\"rule-only\",\"reason_codes\":[\"FAN_OUT\",\"HIGH_VELOCITY\",\"RAPID_ONWARD\"],\"risk_score\":100,\"ruleset_version\":\"rules-v1\",\"schema_version\":\"1.0\",\"transaction_id\":\"txn-000007\"}"
+}

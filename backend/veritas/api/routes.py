@@ -8,11 +8,28 @@ from typing import Literal
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from veritas.api.schemas import DependencyCheck, HealthResponse, ReadyResponse
+from veritas.api.schemas import (
+    DependencyCheck,
+    HealthResponse,
+    ReadyResponse,
+    RulesetCurrentResponse,
+)
 from veritas.api.settings import Settings
+from veritas.risk.manifest import build_ruleset_manifest, ruleset_manifest_sha256
 from veritas.storage import check_sqlite
 
 router = APIRouter(prefix="/api/v1")
+
+
+@router.get("/rulesets/current", response_model=RulesetCurrentResponse)
+def get_current_ruleset() -> RulesetCurrentResponse:
+    manifest = build_ruleset_manifest()
+    digest = ruleset_manifest_sha256(manifest)
+    return RulesetCurrentResponse(
+        ruleset_version=str(manifest["ruleset_version"]),
+        manifest_sha256=digest,
+        manifest=manifest,
+    )
 
 
 @router.get("/health", response_model=HealthResponse)

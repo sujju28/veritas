@@ -294,9 +294,14 @@ def test_migrations_record_one_version(tmp_path: Path) -> None:
         first = apply_migrations(connection)
         second = apply_migrations(connection)
         versions = connection.execute("SELECT version FROM schema_migrations").fetchall()
-    assert first == ["001_initial", "002_decision_explain"]
+    assert first == ["001_initial", "002_decision_explain", "003_ruleset_version", "004_onchain"]
     assert second == []
-    assert [row["version"] for row in versions] == ["001_initial", "002_decision_explain"]
+    assert [row["version"] for row in versions] == [
+        "001_initial",
+        "002_decision_explain",
+        "003_ruleset_version",
+        "004_onchain",
+    ]
     try:
         with connect(db_path) as connection:
             connection.execute(

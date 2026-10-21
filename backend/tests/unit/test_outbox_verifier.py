@@ -61,6 +61,20 @@ class FakeChain:
         self.validate()
         return self.receipts.get(tx_hash)
 
+    def get_ruleset(self, key: bytes):
+        self.validate()
+        from veritas.ledger.ruleset import OnChainRuleset
+        from veritas.risk.manifest import ruleset_manifest_sha256
+
+        return OnChainRuleset(
+            exists=True,
+            manifest_sha256=bytes.fromhex(ruleset_manifest_sha256()),
+            deprecated=False,
+            sender=_FROM.lower(),
+            block_number=4,
+            timestamp=10,
+        )
+
 
 def _ready(tmp_path: Path) -> tuple[Path, str, bytes]:
     db_path = tmp_path / "decisions.db"
@@ -269,9 +283,11 @@ def test_verifier_statuses(tmp_path: Path) -> None:
 
 
 def _with_fake(receipt: dict[str, object], registry: dict[str, object], chain: FakeChain) -> dict:
+    from veritas.ledger.ruleset import OnChainRuleset
     from veritas.verifier import check
 
     original = check.LedgerClient
+    original_ruleset = check.RulesetClient
 
     class _Client:
         def __init__(self, config: object) -> None:
@@ -283,7 +299,18 @@ def _with_fake(receipt: dict[str, object], registry: dict[str, object], chain: F
         def get_decision(self, key: bytes) -> OnChainDecision:
             return chain.get_decision(key)
 
+    class _RulesetClient:
+        def __init__(self, config: object) -> None:
+            del config
+
+        def validate(self) -> None:
+            chain.validate()
+
+        def get_ruleset(self, key: bytes) -> OnChainRuleset:
+            return chain.get_ruleset(key)
+
     check.LedgerClient = _Client
+    check.RulesetClient = _RulesetClient
     try:
         return check.verify_on_chain(
             receipt,
@@ -291,6 +318,8 @@ def _with_fake(receipt: dict[str, object], registry: dict[str, object], chain: F
             rpc_url="http://127.0.0.1:8545",
             chain_id=31337,
             contract_address="0x5FbDB2315678afecb367f032d93F642f64180aa3",
+            ruleset_registry_address="0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
         )
     finally:
         check.LedgerClient = original
+        check.RulesetClient = original_ruleset

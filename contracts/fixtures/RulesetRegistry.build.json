@@ -1,0 +1,10 @@
+{
+  "foundry": "1.8.5",
+  "solc": "0.8.28",
+  "evm_version": "cancun",
+  "optimizer": true,
+  "optimizer_runs": 200,
+  "runtime_bytes": 1139,
+  "runtime_sha256": "8fbbb76dcc547f0cbc6038baa5ce45d88c7ebe2115ea3f4bb9639932efca6ccf",
+  "note": "Runtime bytecode of RulesetRegistry after solc 0.8.28 with the optimizer. Anvil may delete this code when its state file is removed."
+}

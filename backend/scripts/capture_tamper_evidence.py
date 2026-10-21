@@ -1,9 +1,10 @@
 """Capture a live-chain tamper transcript for the publication folder.
 
 Starts a temporary Anvil on 127.0.0.1:8545 with its state in a temporary directory,
-deploys the registry, scores one seeded transaction in a temporary database, anchors it,
-then runs the independent verifier CLI on the original receipt, a tampered copy, a wrong
-contract address, and the original receipt again after Anvil is stopped.
+deploys the registries, scores one seeded transaction in a temporary database, anchors it,
+then runs the independent verifier CLI on the original receipt, a tampered copy, a re-signed
+copy with a mismatched ruleset, a wrong contract address, and the original receipt again after
+Anvil is stopped.
 
 Port 8545 must be free. Nothing outside the temporary directory is changed except the
 gitignored `.env.local` that `contracts/script/deploy-local.sh` writes.
@@ -23,7 +24,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from veritas.decisions.service import evaluate_transaction, get_receipt
-from veritas.evidence.keys import ensure_signing_key, registry_path_for
+from veritas.evidence.keys import ensure_signing_key, load_private_key, registry_path_for
+from veritas.evidence.models import EvidencePayload
+from veritas.evidence.sign import sign_payload
 from veritas.ledger.client import LedgerClient, LedgerConfig
 from veritas.ledger.commitment import PINNED_RUNTIME_SHA256
 from veritas.simulator.store import seed_database
@@ -91,6 +94,16 @@ def _run_all(work: Path, process: subprocess.Popen[bytes], lines: list[str]) -> 
         text=True,
     )
     deploy_line = deploy.stdout.strip().splitlines()[-1]
+    env_lines = (ROOT / ".env.local").read_text().splitlines()
+    ruleset_addr = next(
+        (
+            line.split("=")[1].strip()
+            for line in env_lines
+            if line.startswith("VERITAS_RULESET_REGISTRY_ADDRESS=")
+        ),
+        None,
+    )
+
     db_path = work / "live.db"
     seed_database(db_path, seed=42, scale="tiny", replace=False, confirm_benchmark=False)
     key_path = work / "issuer.pem"
@@ -123,11 +136,28 @@ def _run_all(work: Path, process: subprocess.Popen[bytes], lines: list[str]) -> 
 
     original = work / "receipt.json"
     original.write_text(json.dumps(receipt), encoding="utf-8")
+
     tampered_receipt = json.loads(original.read_text(encoding="utf-8"))
     original_score = tampered_receipt["payload"]["risk_score"]
     tampered_receipt["payload"]["risk_score"] = 1
     tampered = work / "receipt-tampered.json"
     tampered.write_text(json.dumps(tampered_receipt), encoding="utf-8")
+
+    # Re-signed with mismatched ruleset_sha256
+    mismatched_payload = EvidencePayload(
+        **{
+            **receipt["payload"],
+            "ruleset_sha256": "00" * 32,
+        }
+    )
+    mismatched_receipt_obj, _ = sign_payload(
+        mismatched_payload,
+        load_private_key(key_path),
+        "issuer-local-1",
+    )
+    mismatched = work / "receipt-mismatched-ruleset.json"
+    mismatched.write_text(json.dumps(mismatched_receipt_obj.model_dump()), encoding="utf-8")
+
     trusted = registry_path_for(key_path)
 
     lines += [
@@ -141,18 +171,44 @@ def _run_all(work: Path, process: subprocess.Popen[bytes], lines: list[str]) -> 
         f"# Stored digest {receipt['digest_hex']}.",
         "# The tampered copy changes payload.risk_score from "
         f"{original_score} to 1. Exit 0 means VERIFIED_ONCHAIN only.",
+        "# The mismatched ruleset copy is validly signed but claims ruleset_sha256 00...00.",
         "# This shows integrity of the receipt, not that the decision was correct.",
         "",
     ]
-    lines += _cli("1. original receipt, chain running", original, trusted, CONTRACT)
-    lines += _cli("2. tampered copy, chain running", tampered, trusted, CONTRACT)
-    lines += _cli("3. original receipt, wrong contract address", original, trusted, WRONG_CONTRACT)
+    lines += _cli("1. original receipt, chain running", original, trusted, CONTRACT, ruleset_addr)
+    lines += _cli(
+        "2. tampered copy (unsigned edit), chain running",
+        tampered,
+        trusted,
+        CONTRACT,
+        ruleset_addr,
+    )
+    lines += _cli(
+        "3. re-signed with mismatched ruleset_sha256, chain running",
+        mismatched,
+        trusted,
+        CONTRACT,
+        ruleset_addr,
+    )
+    lines += _cli(
+        "4. original receipt, wrong contract address",
+        original,
+        trusted,
+        WRONG_CONTRACT,
+        ruleset_addr,
+    )
     process.terminate()
     process.wait(timeout=10)
-    lines += _cli("4. original receipt, Anvil stopped", original, trusted, CONTRACT)
+    lines += _cli("5. original receipt, Anvil stopped", original, trusted, CONTRACT, ruleset_addr)
 
 
-def _cli(label: str, receipt: Path, trusted: Path, contract: str) -> list[str]:
+def _cli(
+    label: str,
+    receipt: Path,
+    trusted: Path,
+    contract: str,
+    ruleset_addr: str | None = None,
+) -> list[str]:
     command = [
         sys.executable,
         "-m",
@@ -172,9 +228,12 @@ def _cli(label: str, receipt: Path, trusted: Path, contract: str) -> list[str]:
     ]
     shown = (
         f"$ python -m veritas.verifier verify --receipt {receipt.name} --trusted-keys "
-        f"trust-registry.json --rpc-url {RPC} --chain-id {CHAIN_ID} --contract-address {contract} "
-        "--json"
+        f"trust-registry.json --rpc-url {RPC} --chain-id {CHAIN_ID} --contract-address {contract}"
     )
+    if ruleset_addr:
+        command += ["--ruleset-address", ruleset_addr]
+        shown += f" --ruleset-address {ruleset_addr}"
+    shown += " --json"
     done = subprocess.run(
         command, cwd=ROOT / "backend", capture_output=True, text=True, check=False
     )

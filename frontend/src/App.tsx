@@ -33,6 +33,13 @@ interface Decision {
   score_kind: string;
   reason_codes: string[];
   ruleset_version: string;
+  ruleset_sha256?: string | null;
+  source_ref?: {
+    chain_id: number;
+    block_number: number;
+    tx_hash: string;
+    log_index: number;
+  } | null;
   model_version: string;
   features: Record<string, string | number | boolean | null>;
   triggered_rules: { code: string; feature: string; value: unknown; threshold: unknown }[];
@@ -51,6 +58,13 @@ interface Receipt {
     feature_snapshot_sha256: string;
     model_version: string;
     ruleset_version: string;
+    ruleset_sha256?: string | null;
+    source_ref?: {
+      chain_id: number;
+      block_number: number;
+      tx_hash: string;
+      log_index: number;
+    } | null;
     decision_timestamp: string;
   };
   digest_hex: string;
@@ -96,14 +110,21 @@ export function App() {
   const [copyScore, setCopyScore] = useState(1);
   const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
   const [storedDigest, setStoredDigest] = useState<string>("");
+  const [rulesetInfo, setRulesetInfo] = useState<{ version: string; sha256: string } | null>(null);
 
   async function loadOverview() {
     setError(null);
     try {
       const ready = await apiRequest<{ status: string }>("/api/v1/health");
       const listed = await apiRequest<{ scenarios: Scenario[] }>("/api/v1/scenarios");
+      const ruleset = await apiRequest<{ ruleset_version: string; manifest_sha256: string }>(
+        "/api/v1/rulesets/current",
+      ).catch(() => null);
       setHealth(ready.status);
       setScenarios(listed.scenarios);
+      if (ruleset) {
+        setRulesetInfo({ version: ruleset.ruleset_version, sha256: ruleset.manifest_sha256 });
+      }
     } catch (exc) {
       setError(exc instanceof ApiFailure ? exc.message : "The overview could not be loaded.");
     }
@@ -200,6 +221,7 @@ export function App() {
         <p>
           Synthetic local data. Anvil is a resettable development chain, not a permissioned QBFT
           ledger. Private keys are not shown.
+          {rulesetInfo ? ` Active ruleset: ${rulesetInfo.version} (${rulesetInfo.sha256.slice(0, 12)}...).` : ""}
         </p>
         <nav aria-label="Demo sections">
           {(
@@ -228,6 +250,11 @@ export function App() {
           <section aria-labelledby="overview-heading">
             <h2 id="overview-heading">Overview</h2>
             <p>API health: {health || "unknown"}</p>
+            {rulesetInfo ? (
+              <p>
+                Ruleset: <strong>{rulesetInfo.version}</strong> (SHA-256: <code>{rulesetInfo.sha256}</code>)
+              </p>
+            ) : null}
             <button type="button" onClick={() => void loadOverview()}>
               Refresh
             </button>
@@ -348,9 +375,16 @@ export function App() {
               <>
                 <p>
                   {decision.decision_id} score {decision.risk_score} ({decision.decision}).{" "}
-                  {decision.score_kind}. Rules {decision.ruleset_version}. Model{" "}
+                  {decision.score_kind}. Rules {decision.ruleset_version}
+                  {decision.ruleset_sha256 ? ` (${decision.ruleset_sha256.slice(0, 12)}...)` : ""}. Model{" "}
                   {decision.model_version}.
                 </p>
+                {decision.source_ref ? (
+                  <p data-testid="provenance-info">
+                    <strong>On-chain provenance:</strong> Block {decision.source_ref.block_number}, Tx{" "}
+                    <code>{decision.source_ref.tx_hash.slice(0, 16)}...</code>, Log index {decision.source_ref.log_index} (Chain {decision.source_ref.chain_id})
+                  </p>
+                ) : null}
                 <StatusTagView value={decision.anchor_status} />
                 <table>
                   <caption>Triggered reason codes</caption>
@@ -410,6 +444,16 @@ export function App() {
               <dd>{receipt.payload.feature_snapshot_sha256}</dd>
               <dt>Receipt digest</dt>
               <dd>{storedDigest}</dd>
+              <dt>Ruleset hash</dt>
+              <dd>{receipt.payload.ruleset_sha256 ?? "none"}</dd>
+              {receipt.payload.source_ref ? (
+                <>
+                  <dt>Source transfer block</dt>
+                  <dd>{receipt.payload.source_ref.block_number}</dd>
+                  <dt>Source transfer tx</dt>
+                  <dd>{receipt.payload.source_ref.tx_hash}</dd>
+                </>
+              ) : null}
               <dt>Signer</dt>
               <dd>
                 {receipt.signing_key_id} {receipt.signature_algorithm}

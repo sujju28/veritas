@@ -68,9 +68,10 @@ Expected on a fresh seed-42 database: decision `HIGH`, score 100, reason codes `
 |---|---|
 | Synthetic dataset | `make seed` (seed 42). The default scale reports `content_sha256` `cd1955ac9585643c7f67a7e12abc65dcfd905f135db7e21ef1f1d41680dc5ca0`. `make seed REPLACE=1` rebuilds demo rows and must give the same hash |
 | Scales | tiny 100 accounts / 500 transfers, default 300 / 2,000, benchmark 1,000 / 10,000 (`make seed SCALE=benchmark CONFIRM=1`) |
-| Rules | `rules-v1`, documented in `docs/RISK_REPORT.md` |
-| Contract build | `contracts/fixtures/DecisionRegistry.build.json`, runtime SHA-256 below |
-| Raw benchmarks | `docs/benchmarks/study.json` and `study.csv` from `make benchmark` |
+| Rules manifest | `docs/rulesets/rules-v1.json`. `make ruleset-manifest` reports canonical RFC 8785 SHA-256 `5cfa632b350438ea23f0fe7842efeb8f85f52bfd5830e060012019bb52e4b655` |
+| Contract builds | Pinned in `contracts/fixtures/*.build.json` (runtime SHA-256 hashes below) |
+| On-chain replay & ingest | `make onchain-replay && make onchain-ingest` populates `data/veritas-onchain.db`. The `(id, from, to, amount, time)` SHA-256 fingerprint matches the off-chain source exactly |
+| Raw benchmarks | `docs/benchmarks/study.json` (Phase 08) and `docs/benchmarks/onchain_benchmark.json` (Phase 10) |
 | Live tamper transcript | `make capture-tamper` writes `docs/publication/tamper-cli-live.txt` |
 
 ## Screenshots
@@ -94,25 +95,33 @@ lsof -nP -iTCP:5173 -sTCP:LISTEN
 lsof -nP -iTCP:8545 -sTCP:LISTEN
 ```
 
-No output means free. Optional cleanup of project-owned local state: `rm -rf data/veritas.db .anvil .local/keys frontend/dist`. These paths are gitignored, and deleting them erases the synthetic dataset, local commitments, and the issuer key. Do not delete paths this project did not create. The outage procedure is in `docs/RUNBOOK.md`.
+No output means free. Optional cleanup of project-owned local state: `rm -rf data/veritas.db data/veritas-onchain.db .anvil .local/keys frontend/dist`. These paths are gitignored, and deleting them erases the synthetic dataset, local commitments, and the issuer key. Do not delete paths this project did not create. The outage procedure is in `docs/RUNBOOK.md`.
 
 ## Architecture and documents
 
 | Document | Contents |
 |---|---|
-| `docs/ARCHITECTURE.md` | Mermaid topology and sequence diagrams, design spec, and an as-built trust-boundary diagram (section 15) |
-| `docs/THREAT_MODEL.md` | What is trusted, what is not, and what an attacker on the laptop can and cannot do |
-| `docs/RUNBOOK.md` | Operating, outage, and cleanup procedures |
-| `docs/API.md`, `docs/openapi.json` | HTTP endpoints and the generated OpenAPI 3.1 document |
-| `docs/PROTOCOL.md` | Evidence protocol 1.0, verifier statuses, version policy, contract identity |
-| `docs/adr/` | SQLite, native Anvil instead of Besu, asynchronous outbox |
+| `docs/ARCHITECTURE.md` | Mermaid topology, sequence diagrams, design spec, trust-boundary diagram, and on-chain intelligence architecture (section 16) |
+| `docs/THREAT_MODEL.md` | What is trusted, what is not, ruleset tampering, Anvil reset detection, and data privacy boundary |
+| `docs/RUNBOOK.md` | Operating, outage, cleanup, ruleset registration, and on-chain replay/ingest procedures |
+| `docs/API.md`, `docs/openapi.json` | HTTP endpoints and the generated OpenAPI 3.1 document (including ruleset and provenance endpoints) |
+| `docs/PROTOCOL.md` | Evidence protocol 1.1, ruleset commitments, source_ref provenance, verifier statuses, contract identity |
+| `docs/adr/` | SQLite (ADR-001), native Anvil instead of Besu (ADR-002), async outbox (ADR-003), Ruleset Registry (ADR-004), On-chain transfer log (ADR-005) |
 | `docs/STATUS.md`, `docs/ACCEPTANCE.md` | Delivery state and acceptance results |
 
-The contract chain id is **31337**. The pinned runtime bytecode SHA-256 is `9bef8ceb9b4888b3d31ab6c0e073cd34301145be187548e308e755a10f8978db` (1,273 bytes, solc 0.8.28, optimizer 200 runs).
+The contract chain id is **31337**. The pinned runtime bytecode SHA-256 hashes (solc 0.8.28, optimizer 200 runs) are:
+- `DecisionRegistry`: `9bef8ceb9b4888b3d31ab6c0e073cd34301145be187548e308e755a10f8978db` (1,273 bytes)
+- `RulesetRegistry`: `8fbbb76dcc547f0cbc6038baa5ce45d88c7ebe2115ea3f4bb9639932efca6ccf` (1,348 bytes)
+- `TransferLog`: `4a41fe0b568d01924f4effa8de9be0be57170ae660c928a9bdaf0b8b36aa4c3d` (1,080 bytes)
 
-## Signing and commitments
+## Signing, commitments, and on-chain intelligence
 
-The receipt is RFC 8785 JSON, SHA-256, and Ed25519 over those canonical bytes. The public key is pinned beside the gitignored private key. The chain stores only the decision-key digest and the evidence digest. `make verify RECEIPT=... TRUSTED_KEYS=...` checks a file. It does not call the scoring API. A stopped Anvil returns `VERIFICATION_UNAVAILABLE`.
+The receipt is RFC 8785 JSON, SHA-256, and Ed25519 over those canonical bytes (Protocol 1.1). The public key is pinned beside the gitignored private key.
+- **Decision anchoring:** The chain stores only the decision-key digest and the evidence digest in `DecisionRegistry.sol`.
+- **Ruleset verification:** The active ruleset manifest digest (`ruleset_sha256`) is registered in `RulesetRegistry.sol`, allowing the verifier to distinguish legitimate rule executions from unauthorized or tampered rule sets.
+- **On-chain event logging:** `TransferLog.sol` records pseudo-anonymized transfers without scenario labels or feature vectors. The backend replay/ingest pipeline populates an isolated `data/veritas-onchain.db`, enabling downstream analytics and proving transaction execution block/tx provenance (`source_ref`) on decisions and receipts.
+
+`make verify RECEIPT=... TRUSTED_KEYS=...` checks a receipt file independently without calling the scoring API. A stopped Anvil returns `VERIFICATION_UNAVAILABLE`.
 
 ![A receipt copy with a changed score rejected as a signature mismatch](docs/publication/images/receipt-result.png)
 
@@ -123,6 +132,8 @@ Anvil's sample accounts are public insecure credentials. See `SECURITY.md`.
 ## Benchmarks
 
 `make benchmark` is the explicit 10,000-transaction run. The study generated at `2026-10-20T06:25:13Z` is in `docs/benchmarks/`. On that run, seed-42 default graph scoring was p50 6.175 ms and p95 10.109 ms (15 samples after 2 warm-ups). The 1,000-account / 10,000-transaction generation was p50 171.542 ms (one sample). One anchor confirmation was 60.161 ms. Peak RSS was 81,543,168 bytes. The rule-only tiny-set precision was 0.0084 and recall was 0.25 (`docs/RISK_REPORT.md`): 353 of the 356 flagged transfers were legitimate, because ordinary accounts also reach the count thresholds inside that burst. These are single-machine, synthetic, experimental results.
+
+The on-chain benchmark (`docs/benchmarks/onchain_benchmark.json`) measured replay and ingestion of 300 accounts and 2,000 transfers against local Anvil across 3 runs: mean replay duration was 53.7 ms, mean ingestion duration was 49.9 ms, and peak RSS was 43.5 MB.
 
 ## Reproducibility and checks
 

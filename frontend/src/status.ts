@@ -32,7 +32,10 @@ export function statusTag(raw: string | null | undefined): StatusTag {
     value === "INVALID_SIGNATURE" ||
     value === "ONCHAIN_MISMATCH" ||
     value === "UNKNOWN_ISSUER" ||
-    value === "SIGNATURE_MISMATCH"
+    value === "SIGNATURE_MISMATCH" ||
+    value === "RULESET_MISMATCH" ||
+    value === "RULESET_UNREGISTERED" ||
+    value === "MANIFEST_MISMATCH"
   ) {
     return "SIGNATURE_MISMATCH";
   }

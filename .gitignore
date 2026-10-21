@@ -21,9 +21,11 @@ cache/
 out/
 broadcast/
 contracts/lib/
-docs/benchmarks/.bench-*
-*.egg-info/
-.cursor/
+docs/*
+!docs/rulesets/
+!docs/rulesets/**
 prompts/
+.cursor/
+*.egg-info/
 README_START_HERE.md
 VERITAS_M1_8GB_Cursor_Master_Plan.md

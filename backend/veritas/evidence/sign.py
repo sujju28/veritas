@@ -16,7 +16,7 @@ def sign_payload(
     private_key: Ed25519PrivateKey,
     key_id: str,
 ) -> tuple[EvidenceReceipt, str]:
-    raw = canonical_bytes(payload.model_dump())
+    raw = canonical_bytes(payload.model_dump(exclude_none=True))
     digest_hex = hashlib.sha256(raw).hexdigest()
     signature = private_key.sign(raw)
     receipt = EvidenceReceipt(

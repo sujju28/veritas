@@ -1,0 +1,10 @@
+{
+  "foundry": "1.8.5",
+  "solc": "0.8.28",
+  "evm_version": "cancun",
+  "optimizer": true,
+  "optimizer_runs": 200,
+  "runtime_bytes": 3228,
+  "runtime_sha256": "4a41fe0b568d01924f4effa8de9be0be57170ae660c928a9bdaf0b8b36aa4c3d",
+  "note": "Runtime bytecode of TransferLog after solc 0.8.28 with the optimizer. Anvil may delete this code when its state file is removed."
+}

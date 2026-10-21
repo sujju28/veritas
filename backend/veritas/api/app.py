@@ -43,6 +43,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(scenario_router)
     app.include_router(decision_router)
     app.include_router(verify_router)
+
+    @app.get("/rulesets/current", include_in_schema=False)
+    def root_current_ruleset() -> object:
+        from veritas.api.routes import get_current_ruleset
+
+        return get_current_ruleset()
+
     return app
 
 
