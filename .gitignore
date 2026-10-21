@@ -24,6 +24,10 @@ contracts/lib/
 docs/*
 !docs/rulesets/
 !docs/rulesets/**
+!docs/publication/
+docs/publication/*
+!docs/publication/images/
+!docs/publication/images/**
 prompts/
 .cursor/
 *.egg-info/
